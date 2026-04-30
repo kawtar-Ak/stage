@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import GererCourriersJuridiques from "./GererCourriersJuridiques";
 
 const TYPE_WARIDAT = "Waridat";
 const TYPE_MORASALAT = "Morasalat";
@@ -7,15 +8,9 @@ const MODE_LIEE = "Liee";
 const MODE_INDEPENDANTE = "Independante";
 const CORRESPONDANCE_SORTANTE = "Sortante";
 const CORRESPONDANCE_ENTRANTE = "Entrante";
-const DOCUMENT_UPLOAD_SUCCESS = "\u062a\u0645 \u0631\u0641\u0639 \u0627\u0644\u0645\u0644\u0641 \u0648\u062a\u0639\u0628\u0626\u0629 \u0627\u0644\u0631\u0627\u0628\u0637 \u062a\u0644\u0642\u0627\u0626\u064a\u0627.";
-const DOCUMENT_UPLOAD_ERROR = "\u062a\u0639\u0630\u0631 \u0631\u0641\u0639 \u0627\u0644\u0645\u0644\u0641. \u0627\u0644\u0645\u0633\u0645\u0648\u062d: PDF \u0623\u0648 Word.";
-const DOCUMENT_FILE_LABEL = "\u0627\u062e\u062a\u064a\u0627\u0631 \u0645\u0644\u0641 PDF \u0623\u0648 Word";
-const DOCUMENT_UPLOADING_LABEL = "\u062c\u0627\u0631\u064a \u0631\u0641\u0639 \u0627\u0644\u0645\u0644\u0641...";
-const OPEN_DOCUMENT_LABEL = "\u0641\u062a\u062d \u0627\u0644\u0645\u0644\u0641";
-const REMOVE_DOCUMENT_LABEL = "\u062d\u0630\u0641";
-const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".doc", ".docx"];
 
 function GererCourriers() {
+  const [activeRegistre, setActiveRegistre] = useState("administratif");
   const [courriers, setCourriers] = useState([]);
   const [waridat, setWaridat] = useState([]);
   const [services, setServices] = useState([]);
@@ -26,8 +21,8 @@ function GererCourriers() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [importing, setImporting] = useState(false);
-  const [savingLinked, setSavingLinked] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [savingLinked, setSavingLinked] = useState(false);
   const [form, setForm] = useState(getInitialForm());
 
   const selectedParent = useMemo(
@@ -141,46 +136,6 @@ function GererCourriers() {
     setForm(getInitialForm(services, form.typeRegistre, form.typeCorrespondance));
     setError("");
     setSuccess("");
-  };
-
-  const handleDocumentSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const fileName = file.name.toLowerCase();
-    const hasAllowedExtension = ALLOWED_DOCUMENT_EXTENSIONS.some((extension) => fileName.endsWith(extension));
-    if (!hasAllowedExtension) {
-      setError(DOCUMENT_UPLOAD_ERROR);
-      e.target.value = "";
-      return;
-    }
-
-    setUploadingDocument(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await axios.post("/api/courriers/upload-document", formData);
-      const lienPdf = response.data?.lienPdf || "";
-
-      if (!lienPdf) {
-        throw new Error(DOCUMENT_UPLOAD_ERROR);
-      }
-
-      setForm((prev) => ({ ...prev, lienPdf }));
-      setSuccess(DOCUMENT_UPLOAD_SUCCESS);
-    } catch (err) {
-      setError(getErrorMessage(err, DOCUMENT_UPLOAD_ERROR));
-    } finally {
-      setUploadingDocument(false);
-      e.target.value = "";
-    }
-  };
-
-  const clearDocumentLink = () => {
-    setForm((prev) => ({ ...prev, lienPdf: "" }));
   };
 
   const handleSubmit = async (e) => {
@@ -423,6 +378,30 @@ function GererCourriers() {
     }
   };
 
+  const handleDocumentSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    setUploadingDocument(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await axios.post("/api/courriers/upload-document", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setForm((prev) => ({ ...prev, lienPdf: response.data?.lienPdf || "" }));
+      setSuccess("Document ajoute. Enregistrez le courrier pour conserver le lien.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Erreur lors de l'upload du document."));
+    } finally {
+      setUploadingDocument(false);
+      e.target.value = "";
+    }
+  };
+
   const renderCourriersTable = () => (
     <div className="data-table-wrapper search-results-table">
       <h3>{hasActiveSearch ? `نتائج البحث (${courriers.length})` : `السجل (${courriers.length})`}</h3>
@@ -439,7 +418,7 @@ function GererCourriers() {
             <th>المرسل إليه</th>
             <th>المصلحة</th>
             <th>الحالة</th>
-            <th>قابل للإحالة</th>
+            <th>Transmissible</th>
             <th>PDF</th>
             <th>الإجراءات</th>
           </tr>
@@ -465,7 +444,7 @@ function GererCourriers() {
                 <td>{courrier.serviceNom || courrier.idService}</td>
                 <td>{formatEtat(courrier.etat)}</td>
                 {/* Affichage direct du booleen renvoye par l'API. */}
-                <td>{courrier.estTransmissible ? "نعم" : "لا"}</td>
+                <td>{courrier.estTransmissible ? "Oui" : "Non"}</td>
                 <td>
                   {courrier.lienPdf ? (
                     <a href={getDocumentHref(courrier.lienPdf)} target="_blank" rel="noreferrer">عرض</a>
@@ -495,9 +474,55 @@ function GererCourriers() {
     </div>
   );
 
+  if (activeRegistre === "juridique") {
+    return (
+      <div className="page-container" dir="rtl">
+        <h1 className="page-title">تدبير المراسلات</h1>
+
+        <div className="registry-choice">
+          <button
+            type="button"
+            className="choice-pill"
+            onClick={() => setActiveRegistre("administratif")}
+          >
+            تدبير المراسلات الإدارية
+          </button>
+          <button
+            type="button"
+            className="choice-pill active"
+            onClick={() => setActiveRegistre("juridique")}
+          >
+            المراسلات القضائية
+          </button>
+        </div>
+
+        <GererCourriersJuridiques embedded />
+      </div>
+    );
+  }
+
   return (
     <div className="page-container" dir="rtl">
-      <h1 className="page-title">تدبير المراسلات الإدارية</h1>
+      <h1 className="page-title">تدبير المراسلات</h1>
+
+      <div className="registry-choice">
+        <button
+          type="button"
+          className="choice-pill active"
+          onClick={() => setActiveRegistre("administratif")}
+        >
+          تدبير المراسلات الإدارية
+        </button>
+        <button
+          type="button"
+          className="choice-pill"
+          onClick={() => setActiveRegistre("juridique")}
+        >
+          المراسلات القضائية
+        </button>
+      </div>
+
+      <h2 className="page-title">تدبير المراسلات الإدارية</h2>
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -638,44 +663,41 @@ function GererCourriers() {
               />
             </div>
 
-            <div className="form-field">
-              <label>رابط PDF / Word</label>
-              <div className="document-upload">
-                <label className={uploadingDocument ? "document-upload-button disabled" : "document-upload-button"}>
-                  {uploadingDocument ? DOCUMENT_UPLOADING_LABEL : DOCUMENT_FILE_LABEL}
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    onChange={handleDocumentSelect}
-                    disabled={uploadingDocument}
-                  />
+            <div className="form-field full-width">
+              <label>الوثيقة PDF / Word</label>
+              <div className="document-control">
+                <label className="document-upload-button">
+                  {uploadingDocument ? "جاري رفع الملف..." : "اختيار ملف"}
+                  <input type="file" accept=".pdf,.doc,.docx" onChange={handleDocumentSelect} />
                 </label>
                 <div className={form.lienPdf ? "document-link-preview filled" : "document-link-preview"}>
-                  {form.lienPdf ? (
-                    <>
-                      <span title={form.lienPdf}>{getDocumentName(form.lienPdf)}</span>
-                      <a href={getDocumentHref(form.lienPdf)} target="_blank" rel="noreferrer">{OPEN_DOCUMENT_LABEL}</a>
-                      <button type="button" onClick={clearDocumentLink}>{REMOVE_DOCUMENT_LABEL}</button>
-                    </>
-                  ) : (
-                    <span>{DOCUMENT_FILE_LABEL}</span>
+                  <span title={form.lienPdf || ""}>{form.lienPdf ? getDocumentName(form.lienPdf) : "لم يتم اختيار ملف"}</span>
+                  {form.lienPdf && (
+                    <a href={getDocumentHref(form.lienPdf)} target="_blank" rel="noreferrer">
+                      فتح
+                    </a>
+                  )}
+                </div>
+                <div className="document-link-input">
+                  <input
+                    type="text"
+                    name="lienPdf"
+                    value={form.lienPdf}
+                    onChange={handleChange}
+                    placeholder="رابط أو اسم ملف PDF"
+                  />
+                  {form.lienPdf && (
+                    <a href={getDocumentHref(form.lienPdf)} target="_blank" rel="noreferrer">
+                      فتح
+                    </a>
                   )}
                 </div>
               </div>
-              <input
-                className="sr-only-field"
-                type="text"
-                name="lienPdf"
-                value={form.lienPdf}
-                onChange={handleChange}
-                tabIndex="-1"
-                placeholder={uploadingDocument ? DOCUMENT_UPLOADING_LABEL : DOCUMENT_FILE_LABEL}
-              />
             </div>
 
             {/* Case liee au champ EstTransmissible cote backend. */}
             <div className="form-field">
-              <label>قابل للإحالة</label>
+              <label>Transmissible</label>
               <label className="checkbox-field">
                 <input
                   type="checkbox"
@@ -683,7 +705,7 @@ function GererCourriers() {
                   checked={form.estTransmissible}
                   onChange={handleChange}
                 />
-                نعم
+                Transmissible
               </label>
             </div>
 
@@ -807,29 +829,6 @@ function getDefaultServiceId(services) {
   return services.length > 0 ? services[0].idService : "";
 }
 
-function getDocumentName(value) {
-  if (!value) return "";
-
-  const cleanValue = String(value).split("?")[0].split("#")[0];
-  const fileName = cleanValue.split("/").filter(Boolean).pop() || cleanValue;
-
-  return decodeURIComponent(fileName);
-}
-
-function getDocumentHref(value) {
-  if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
-
-  const normalizedValue = value.startsWith("/") ? value : `/${value}`;
-  const isReactDevServer = window.location.hostname === "localhost" && window.location.port === "3000";
-
-  if (isReactDevServer) {
-    return `http://localhost:5127${normalizedValue}`;
-  }
-
-  return normalizedValue;
-}
-
 function validateForm(form, isLinkedMorasalat) {
   if (!isLinkedMorasalat && !form.idBureauOrdre.trim()) {
     return "رقم مكتب الضبط إجباري بالنسبة للسطر الرئيسي.";
@@ -889,6 +888,22 @@ function findMainWaridatByNumero(courriers, idBureauOrdre) {
     isMainWaridat(courrier) &&
     (courrier.idBureauOrdre || "").trim() === numero
   ) || null;
+}
+
+function getDocumentHref(value) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const normalizedValue = value.startsWith("/") ? value : `/${value}`;
+  const isReactDevServer = window.location.hostname === "localhost" && window.location.port === "3000";
+
+  return isReactDevServer ? `http://localhost:5127${normalizedValue}` : normalizedValue;
+}
+
+function getDocumentName(value) {
+  if (!value) return "";
+  const cleanValue = String(value).split("?")[0].split("#")[0];
+  return decodeURIComponent(cleanValue.split("/").filter(Boolean).pop() || cleanValue);
 }
 
 function getErrorMessage(error, fallback) {

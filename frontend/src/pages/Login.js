@@ -12,13 +12,11 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
     try {
       await loginUser(login, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(getErrorMessage(err, 'Identifiants incorrects'));
+      setError('Identifiants incorrects');
     }
   };
 
@@ -57,13 +55,6 @@ function Login() {
       </div>
     </div>
   );
-}
-
-function getErrorMessage(error, fallback) {
-  if (typeof error.response?.data === 'string') return error.response.data;
-  if (error.response?.data?.message) return error.response.data.message;
-  if (error.message === 'Network Error') return 'Backend indisponible. Verifiez que http://localhost:5127 est lance.';
-  return fallback;
 }
 
 export default Login;

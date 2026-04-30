@@ -21,40 +21,45 @@ function MainLayout({ children }) {
 
   const getMenuItems = () => {
     const serviceName = user?.nomService?.toLowerCase() || '';
+    const serviceId = user?.idService;
 
     // Liens communs (disponibles pour tous les services)
     const commonLinks = [
         { label: 'dashboard', path: '/dashboard' },
+        { label: 'Gérer les courriers', path: '/courriers' },
+        { label: 'Gérer les dossiers juridiques', path: '/courriers-juridiques' },
+        { label: 'Consulter messages et contenus administratifs', path: '/messages-administratifs' },
+        { label: 'Consulter acteurs et messageries judiciaires', path: '/acteurs-judiciaires' },
         { label: 'mes_entites', path: '/mes-entites' },
         { label: 'transactions_outgoing', path: '/transactions-outgoing' },
         { label: 'notifications', path: '/notifications' }
     ];
 
-    // Liens spécifiques selon le service
-    if (serviceName.includes('admin') || serviceName.includes('informatique')) {
+    // Administrateur (service "خلية المعلوميات" ou IdService == 1)
+    if (serviceId === 1 || serviceName.includes('خلية المعلوميات')) {
         return [
             ...commonLinks,
-        { label: 'Gérer les courriers', path: '/courriers' },
-        { label: 'Registre', path: '/registre' },
-        { label: 'Consulter messages et contenus administratifs', path: '/messages-administratifs' },
-        { label: 'Consulter acteurs et messageries judiciaires', path: '/acteurs-judiciaires' },
-        { label: 'Gérer les équipements', path: '/equipements' },
-        { label: 'Gérer les services', path: '/services' },
-        { label: 'Gérer les utilisateurs', path: '/utilisateurs' },
+            { label: t('equipements'), path: '/equipements' },
+            { label: t('services'), path: '/services' },
+            { label: t('utilisateurs'), path: '/utilisateurs' },
+            { label: t('registre'), path: '/registre' }
         ];
     }
-    if (serviceName.includes('caisse')) {
-        return [ ...commonLinks, { label: 'registre', path: '/registre' } ];
+    if ( serviceName.includes('الحفظ') || serviceId === 13) {
+        return [ ...commonLinks, { label: t('registre'), path: '/registre' } ];
     }
-    if (serviceName.includes('enregistrement')) {
-        return [ ...commonLinks, { label: 'registre', path: '/registre' } ];
+    if (serviceName.includes('رئيس المصلحة') || serviceId === 5) {
+        return [ ...commonLinks, { label: t('registre'), path: '/registre' } ];
     }
-    if (serviceName.includes('greffier') || serviceName.includes('ouverture')) {
-        return [ ...commonLinks, { label: 'registre', path: '/registre' } ];
+    if (serviceName.includes('مكتب الضبط') || serviceId === 2) {
+        return [ ...commonLinks, { label: t('registre'), path: '/registre' } ];
     }
-    // Autres services (par défaut)
+    if (serviceName.includes('فتح الملفات') || serviceId === 3) {
+        return [ ...commonLinks, { label: t('registre'), path: '/registre' } ];
+    }
+    // Autres services
     return commonLinks;
-  };
+};
 
   const menuItems = getMenuItems();
 
@@ -83,3 +88,5 @@ function MainLayout({ children }) {
 }
 
 export default MainLayout;
+
+

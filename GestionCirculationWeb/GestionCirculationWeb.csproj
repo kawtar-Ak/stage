@@ -8,6 +8,8 @@
 
   <ItemGroup>
 
+    <Compile Remove="Controllers\TransactionsDossiersJuridiquesController.cs" />
+
     <PackageReference Include="ClosedXML" Version="0.105.0" />
 
     <PackageReference Include="EPPlus" Version="8.5.3" />
