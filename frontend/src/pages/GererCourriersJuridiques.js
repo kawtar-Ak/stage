@@ -11,6 +11,8 @@ function GererCourriersJuridiques({ embedded = false }) {
   const [uploading, setUploading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [form, setForm] = useState(getInitialForm());
+  const [selectedArchiveItem, setSelectedArchiveItem] = useState(null);
+  const [retraitForm, setRetraitForm] = useState(getInitialRetraitForm());
 
   useEffect(() => {
     fetchCourriers();
@@ -51,11 +53,16 @@ function GererCourriersJuridiques({ embedded = false }) {
   };
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === "idService" ? Number(value) : value,
+      [name]: type === "checkbox" ? checked : name === "idService" ? Number(value) : value,
     }));
+  };
+
+  const handleRetraitChange = (event) => {
+    const { name, value } = event.target;
+    setRetraitForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleDocumentSelect = async (event) => {
@@ -106,7 +113,7 @@ function GererCourriersJuridiques({ embedded = false }) {
       lienPdf: form.lienPdf.trim(),
       idService: Number(form.idService),
       numeroDossier: form.numeroDossier.trim(),
-      estTransmissible: true,
+      estTransmissible: Boolean(form.estTransmissible),
     };
 
     try {
@@ -140,6 +147,7 @@ function GererCourriersJuridiques({ embedded = false }) {
       emplacement: courrier.emplacement || "",
       lienPdf: courrier.lienPdf || "",
       idService: courrier.idService || getDefaultServiceId(services),
+      estTransmissible: Boolean(courrier.estTransmissible),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -165,6 +173,62 @@ function GererCourriersJuridiques({ embedded = false }) {
       await fetchCourriers();
     } catch (err) {
       setError(getErrorMessage(err, "تعذر أرشفة المراسلة القضائية."));
+    }
+  };
+
+  const openArchiveService = (courrier) => {
+    setSelectedArchiveItem(courrier);
+    setRetraitForm(getInitialRetraitForm());
+    setError("");
+    setSuccess("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const closeArchiveService = () => {
+    setSelectedArchiveItem(null);
+    setRetraitForm(getInitialRetraitForm());
+  };
+
+  const handleSaveRetrait = async (event) => {
+    event.preventDefault();
+    if (!selectedArchiveItem) return;
+
+    if (!retraitForm.motifDeRetrait.trim()) {
+      setError("سبب السحب إجباري.");
+      return;
+    }
+
+    try {
+      const payload = {
+        dateDeRetrait: retraitForm.dateDeRetrait
+          ? new Date(retraitForm.dateDeRetrait).toISOString()
+          : new Date().toISOString(),
+        motifDeRetrait: retraitForm.motifDeRetrait.trim(),
+        effectuePar: retraitForm.effectuePar.trim(),
+        notes: retraitForm.notes.trim(),
+      };
+
+      const response = await axios.post(`/api/acteursjudiciaires/${selectedArchiveItem.id}/retraits`, payload);
+      setSelectedArchiveItem(response.data);
+      setRetraitForm(getInitialRetraitForm());
+      setSuccess("تم تسجيل السحب بنجاح.");
+      await fetchCourriers();
+    } catch (err) {
+      setError(getErrorMessage(err, "تعذر تسجيل السحب."));
+    }
+  };
+
+  const handleSaveRetour = async (retraitId) => {
+    try {
+      const response = await axios.put(`/api/acteursjudiciaires/retraits/${retraitId}/retour`, {
+        dateDeRetour: new Date().toISOString(),
+        notes: retraitForm.notes.trim(),
+      });
+      setSelectedArchiveItem(response.data);
+      setSuccess("تم تسجيل الإرجاع بنجاح.");
+      await fetchCourriers();
+    } catch (err) {
+      setError(getErrorMessage(err, "تعذر تسجيل الإرجاع."));
     }
   };
 
@@ -292,6 +356,19 @@ function GererCourriersJuridiques({ embedded = false }) {
             </div>
 
             <div className="form-field">
+              <label>قابل للإحالة</label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  name="estTransmissible"
+                  checked={form.estTransmissible}
+                  onChange={handleChange}
+                />
+                نعم
+              </label>
+            </div>
+
+            <div className="form-field">
               <label>الموقع</label>
               <input name="emplacement" value={form.emplacement} onChange={handleChange} />
             </div>
@@ -335,6 +412,109 @@ function GererCourriersJuridiques({ embedded = false }) {
         </form>
       </div>
 
+      {selectedArchiveItem && (
+        <div className="form-card archive-service-panel">
+          <div className="registry-panel-header">
+            <div>
+              <h3>خدمة الأرشيف: السحب والإرجاع</h3>
+              <p>
+                {selectedArchiveItem.numeroDossier || "-"} - {selectedArchiveItem.sujet || "-"}
+              </p>
+            </div>
+            <button type="button" className="btn-secondary" onClick={closeArchiveService}>
+              إغلاق
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveRetrait}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>تاريخ السحب</label>
+                <input
+                  type="date"
+                  name="dateDeRetrait"
+                  value={retraitForm.dateDeRetrait}
+                  onChange={handleRetraitChange}
+                />
+              </div>
+
+              <div className="form-field">
+                <label>سبب السحب *</label>
+                <input
+                  name="motifDeRetrait"
+                  value={retraitForm.motifDeRetrait}
+                  onChange={handleRetraitChange}
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label>تم بواسطة</label>
+                <input
+                  name="effectuePar"
+                  value={retraitForm.effectuePar}
+                  onChange={handleRetraitChange}
+                />
+              </div>
+
+              <div className="form-field full-width">
+                <label>ملاحظات</label>
+                <textarea
+                  name="notes"
+                  value={retraitForm.notes}
+                  onChange={handleRetraitChange}
+                  rows="2"
+                />
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="btn-primary">تسجيل السحب</button>
+            </div>
+          </form>
+
+          <div className="data-table-wrapper">
+            <h3>سجل السحوبات</h3>
+            <table className="modern-table">
+              <thead>
+                <tr>
+                  <th>تاريخ السحب</th>
+                  <th>السبب</th>
+                  <th>تم بواسطة</th>
+                  <th>تاريخ الإرجاع</th>
+                  <th>ملاحظات</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(selectedArchiveItem.retraits || []).length === 0 ? (
+                  <tr><td colSpan="6" style={{ textAlign: "center" }}>لا توجد سحوبات.</td></tr>
+                ) : (
+                  selectedArchiveItem.retraits.map((retrait) => (
+                    <tr key={retrait.id}>
+                      <td>{formatDate(retrait.dateDeRetrait)}</td>
+                      <td>{retrait.motifDeRetrait || "-"}</td>
+                      <td>{retrait.effectuePar || "-"}</td>
+                      <td>{retrait.dateDeRetour ? formatDate(retrait.dateDeRetour) : "-"}</td>
+                      <td>{retrait.notes || "-"}</td>
+                      <td>
+                        {!retrait.dateDeRetour ? (
+                          <button type="button" onClick={() => handleSaveRetour(retrait.id)}>
+                            تسجيل الإرجاع
+                          </button>
+                        ) : (
+                          "تم الإرجاع"
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="registry-panel">
         <div className="registry-panel-header">
           <h3>البحث والسجل</h3>
@@ -365,13 +545,14 @@ function GererCourriersJuridiques({ embedded = false }) {
                 <th>المصلحة</th>
                 <th>الحالة</th>
                 <th>الموقع</th>
+                <th>السحوبات</th>
                 <th>PDF</th>
                 <th>الإجراءات</th>
               </tr>
             </thead>
             <tbody>
               {courriers.length === 0 ? (
-                <tr><td colSpan="11" style={{ textAlign: "center" }}>لا توجد مراسلات قضائية.</td></tr>
+                <tr><td colSpan="12" style={{ textAlign: "center" }}>لا توجد مراسلات قضائية.</td></tr>
               ) : (
                 courriers.map((courrier) => (
                   <tr key={courrier.id}>
@@ -384,9 +565,11 @@ function GererCourriersJuridiques({ embedded = false }) {
                     <td>{courrier.serviceNom || courrier.idService || "-"}</td>
                     <td>{formatEtat(courrier.etatArchive)}</td>
                     <td>{courrier.emplacement || "-"}</td>
+                    <td>{courrier.retraitsCount ?? 0}</td>
                     <td>{courrier.lienPdf ? <a href={getDocumentHref(courrier.lienPdf)} target="_blank" rel="noreferrer">فتح</a> : "-"}</td>
                     <td className="action-icons">
                       <button type="button" onClick={() => handleEdit(courrier)}>تعديل</button>
+                      <button type="button" onClick={() => openArchiveService(courrier)}>خدمة الأرشيف</button>
                       <button type="button" onClick={() => handleArchive(courrier.id)}>أرشفة</button>
                       <button type="button" onClick={() => handleDelete(courrier.id)}>حذف</button>
                     </td>
@@ -415,6 +598,16 @@ function getInitialForm(services = []) {
     emplacement: "",
     lienPdf: "",
     idService: getDefaultServiceId(services),
+    estTransmissible: true,
+  };
+}
+
+function getInitialRetraitForm() {
+  return {
+    dateDeRetrait: new Date().toISOString().slice(0, 10),
+    motifDeRetrait: "",
+    effectuePar: "",
+    notes: "",
   };
 }
 

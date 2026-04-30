@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 function ActeursJudiciaires() {
+  const { t, i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || 'fr').startsWith('ar') ? 'ar-MA' : 'fr-FR';
   const [items, setItems] = useState([]);
   const [motCle, setMotCle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const timeout = setTimeout(fetchItems, 250);
+    return () => clearTimeout(timeout);
+  }, [motCle]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -17,20 +25,15 @@ function ActeursJudiciaires() {
       setItems(res.data);
       setError('');
     } catch (err) {
-      setError(getErrorMessage(err, 'Erreur chargement des acteurs et messageries judiciaires'));
+      setError(getErrorMessage(err, t('erreur_chargement_acteurs')));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const timeout = setTimeout(fetchItems, 250);
-    return () => clearTimeout(timeout);
-  }, [motCle]);
-
   return (
     <div className="page-container">
-      <h1 className="page-title">Acteurs et messageries judiciaires</h1>
+      <h1 className="page-title">{t('acteurs_messageries_judiciaires')}</h1>
 
       {error && <div className="error-message">{error}</div>}
 
@@ -39,46 +42,45 @@ function ActeursJudiciaires() {
           type="text"
           value={motCle}
           onChange={e => setMotCle(e.target.value)}
-          placeholder="Rechercher par tribunal, sujet, destinataire, emplacement, etat"
+          placeholder={t('rechercher_acteurs')}
         />
-        <button type="button" className="btn-secondary" onClick={() => setMotCle('')}>Reinitialiser</button>
+        <button type="button" className="btn-secondary" onClick={() => setMotCle('')}>{t('reinitialiser')}</button>
       </div>
 
       <div className="data-table-wrapper">
         <table className="modern-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Tribunal / Source</th>
-              <th>N dossier</th>
-              <th>Objet</th>
-              <th>Direction</th>
-              <th>Destinataire</th>
-              <th>Service</th>
-              <th>Transmissible</th>
-              <th>Etat</th>
-              <th>Emplacement</th>
-              <th>Retraits</th>
+              <th>{t('date')}</th>
+              <th>{t('tribunal_source')}</th>
+              <th>{t('numero_dossier')}</th>
+              <th>{t('objet')}</th>
+              <th>{t('direction')}</th>
+              <th>{t('destinataire')}</th>
+              <th>{t('service')}</th>
+              <th>{t('transmissible')}</th>
+              <th>{t('etat')}</th>
+              <th>{t('emplacement')}</th>
+              <th>{t('retraits')}</th>
               <th>PDF</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="12">Chargement...</td></tr>
+              <tr><td colSpan="12">{t('chargement')}</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="12">Aucun element judiciaire trouve.</td></tr>
+              <tr><td colSpan="12">{t('aucun_element_judiciaire')}</td></tr>
             ) : (
               items.map(item => (
                 <tr key={item.id}>
-                  <td>{formatDate(item.date)}</td>
+                  <td>{formatDate(item.date, locale)}</td>
                   <td>{item.tribunalSource || '-'}</td>
                   <td>{item.numeroDossier || '-'}</td>
                   <td>{item.sujet || '-'}</td>
                   <td>{item.direction || '-'}</td>
                   <td>{item.destinataire || '-'}</td>
                   <td>{item.serviceNom || item.idService || '-'}</td>
-                  {/* Le backend renvoie EstTransmissible sous forme estTransmissible. */}
-                  <td>{item.estTransmissible ? 'Oui' : 'Non'}</td>
+                  <td>{item.estTransmissible ? t('oui') : t('non')}</td>
                   <td>{item.etatArchive || '-'}</td>
                   <td>{item.emplacement || '-'}</td>
                   <td>{item.retraitsCount ?? 0}</td>
@@ -93,9 +95,9 @@ function ActeursJudiciaires() {
   );
 }
 
-function formatDate(value) {
+function formatDate(value, locale) {
   if (!value) return '-';
-  return new Date(value).toLocaleDateString();
+  return new Date(value).toLocaleDateString(locale);
 }
 
 function getErrorMessage(error, fallback) {

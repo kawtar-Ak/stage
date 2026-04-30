@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import DocumentModal from '../components/DocumentModal';
 
 function MesEntites() {
     const { t } = useTranslation();
@@ -11,85 +12,106 @@ function MesEntites() {
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [transferForm, setTransferForm] = useState({ serviceId: '', userId: '', doitRevenir: false, message: '' });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalDocument, setModalDocument] = useState(null);
 
     useEffect(() => {
         fetchDocuments();
-        axios.get('/api/services').then(res => setServices(res.data));
+        fetchServices();
     }, []);
 
     const fetchDocuments = async () => {
         try {
             const res = await axios.get('/api/documents');
             setDocuments(res.data);
+            setError('');
         } catch (err) {
             setError(t('erreur_chargement'));
         }
     };
 
+    const fetchServices = async () => {
+        try {
+            const res = await axios.get('/api/services');
+            setServices(res.data);
+        } catch (err) {
+            setError(t('erreur_chargement'));
+        }
+    };
+
+    const openTransferModal = (doc) => {
+        setSelectedDoc(doc);
+        setUsers([]);
+        setTransferForm({ serviceId: '', userId: '', doitRevenir: false, message: '' });
+        setShowModal(true);
+        setError('');
+        setSuccess('');
+    };
+
     const handleServiceChange = async (serviceId) => {
-        setTransferForm({ ...transferForm, serviceId, userId: '' });
-        const res = await axios.get(`/api/utilisateurs?serviceId=${serviceId}`);
-        setUsers(res.data);
+        const nextServiceId = serviceId || '';
+        setTransferForm({ ...transferForm, serviceId: nextServiceId, userId: '' });
+        setUsers([]);
+
+        if (!nextServiceId) return;
+
+        try {
+            const res = await axios.get(`/api/utilisateurs?serviceId=${nextServiceId}`);
+            setUsers(res.data);
+        } catch (err) {
+            setError(t('erreur_chargement'));
+        }
     };
 
     const handleTransfer = async () => {
+        if (!selectedDoc || !transferForm.serviceId) {
+            setError(t('service_destinataire_requis'));
+            return;
+        }
+
         try {
             await axios.post('/api/transactions', {
                 documentId: selectedDoc.idEntite,
                 documentType: selectedDoc.type,
-                destinationServiceId: transferForm.serviceId,
-                destinationUserId: transferForm.userId || null,
+                destinationServiceId: Number(transferForm.serviceId),
+                destinationUserId: transferForm.userId ? Number(transferForm.userId) : null,
                 doitRevenir: transferForm.doitRevenir,
                 message: transferForm.message
             });
             setShowModal(false);
-            alert(t('transaction_envoyee'));
-            fetchDocuments(); // rafraîchir la liste
+            setSelectedDoc(null);
+            setSuccess(t('transaction_envoyee'));
+            setError('');
+            fetchDocuments();
         } catch (err) {
-            setError(err.response?.data || t('erreur_transaction'));
+            setError(err.response?.data?.message || err.response?.data || t('erreur_transaction'));
         }
     };
 
-    const archiverDocument = async (docId) => {
+    const handleConsult = async (doc) => {
         try {
-            await axios.post(`/api/archive/${docId}/archiver`);
-            alert('Document archivé avec succès');
-            fetchDocuments();
+            const res = await axios.get(`/api/documents/${doc.idEntite}?type=${encodeURIComponent(doc.type)}`);
+            setModalDocument(res.data);
         } catch (err) {
-            setError(err.response?.data?.error || 'Erreur lors de l\'archivage');
+            setModalDocument(doc);
         }
+        setIsModalOpen(true);
     };
 
-    const retirerDocument = async (docId) => {
-        const motif = prompt('Motif du retrait:');
-        if (!motif) return;
-        try {
-            await axios.post(`/api/archive/${docId}/retirer`, motif);
-            alert('Document retiré avec succès');
-            fetchDocuments();
-        } catch (err) {
-            setError(err.response?.data?.error || 'Erreur lors du retrait');
-        }
-    };
-
-    const retournerDocument = async (docId) => {
-        // Récupérer l'ID du dernier retrait actif (non retourné)
-        try {
-            const res = await axios.get(`/api/archive/${docId}/dernier-retrait`);
-            const retraitId = res.data.retraitId;
-            await axios.post(`/api/archive/retrait/${retraitId}/retourner`);
-            alert('Document retourné avec succès');
-            fetchDocuments();
-        } catch (err) {
-            setError(err.response?.data?.error || 'Erreur lors du retour');
-        }
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setModalDocument(null);
     };
 
     return (
         <div className="page-container">
             <h1 className="page-title">{t('mes_entites')}</h1>
             {error && <div className="error-message">{error}</div>}
+            {success && <div className="success-message">{success}</div>}
+
             <div className="data-table-wrapper">
+                <h3>{t('documents_transmissibles')} ({documents.length})</h3>
                 <table className="modern-table">
                     <thead>
                         <tr>
@@ -98,60 +120,68 @@ function MesEntites() {
                             <th>{t('date')}</th>
                             <th>{t('source')}</th>
                             <th>{t('destinataire')}</th>
-                            <th>{t('etat')}</th>
                             <th>{t('actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {documents.map(doc => (
-                            <tr key={doc.idEntite}>
-                                <td>{doc.sujet}</td>
-                                <td>{doc.type}</td>
-                                <td>{new Date(doc.dateCreation).toLocaleString()}</td>
-                                <td>{doc.source}</td>
-                                <td>{doc.destinataire}</td>
-                                <td>
-                                    {doc.type === 'Judiciaire' && doc.etatWorkflow}
-                                    {doc.type !== 'Judiciaire' && '—'}
-                                </td>
-                                <td className="action-icons">
-                                    <button className="btn-primary" onClick={() => { setSelectedDoc(doc); setShowModal(true); }}>
-                                        {t('transferer')}
-                                    </button>
-                                </td>
+                        {documents.length === 0 ? (
+                            <tr>
+                                <td colSpan="6" className="loading">{t('aucun_document')}</td>
                             </tr>
-                        ))}
+                        ) : (
+                            documents.map(doc => (
+                                <tr key={`${doc.idEntite}_${doc.type}`}>
+                                    <td>{doc.sujet || '-'}</td>
+                                    <td>{doc.type}</td>
+                                    <td>{doc.dateCreation ? new Date(doc.dateCreation).toLocaleString('ar-MA') : '-'}</td>
+                                    <td>{doc.source || '-'}</td>
+                                    <td>{doc.destinataire || '-'}</td>
+                                    <td className="action-icons">
+                                        <button className="btn-secondary" onClick={() => handleConsult(doc)}>{t('consulter')}</button>
+                                        <button className="btn-primary" onClick={() => openTransferModal(doc)}>{t('transferer')}</button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Modal de transfert (inchangé) */}
-            {showModal && (
+            {showModal && selectedDoc && (
                 <>
                     <div className="modal-overlay" onClick={() => setShowModal(false)} />
                     <div className="modal">
-                        <h3>{t('transferer')} : {selectedDoc?.sujet}</h3>
+                        <h3>{t('transferer')} : {selectedDoc.sujet}</h3>
                         <div className="form-grid">
                             <div className="form-field">
-                                <label>{t('service_destinataire')}</label>
-                                <select value={transferForm.serviceId} onChange={e => handleServiceChange(parseInt(e.target.value))}>
+                                <label>{t('service_destinataire')} *</label>
+                                <select value={transferForm.serviceId} onChange={e => handleServiceChange(Number(e.target.value))}>
                                     <option value="">--</option>
-                                    {services.filter(s => s.idService !== selectedDoc?.idService).map(s => <option key={s.idService} value={s.idService}>{s.nomService}</option>)}
+                                    {services.filter(s => s.idService !== selectedDoc.idService).map(s => (
+                                        <option key={s.idService} value={s.idService}>{s.nomService}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="form-field">
                                 <label>{t('personne')}</label>
-                                <select value={transferForm.userId} onChange={e => setTransferForm({...transferForm, userId: parseInt(e.target.value)})}>
+                                <select value={transferForm.userId} onChange={e => setTransferForm({ ...transferForm, userId: e.target.value })}>
                                     <option value="">--</option>
                                     {users.map(u => <option key={u.id} value={u.id}>{u.nomComplet}</option>)}
                                 </select>
                             </div>
                             <div className="form-field">
-                                <label><input type="checkbox" checked={transferForm.doitRevenir} onChange={e => setTransferForm({...transferForm, doitRevenir: e.target.checked})} /> {t('doit_revenir')}</label>
+                                <label className="checkbox-field">
+                                    <input
+                                        type="checkbox"
+                                        checked={transferForm.doitRevenir}
+                                        onChange={e => setTransferForm({ ...transferForm, doitRevenir: e.target.checked })}
+                                    />
+                                    {t('doit_revenir')}
+                                </label>
                             </div>
-                            <div className="form-field">
+                            <div className="form-field full-width">
                                 <label>{t('message')}</label>
-                                <textarea value={transferForm.message} onChange={e => setTransferForm({...transferForm, message: e.target.value})} rows="2" />
+                                <textarea value={transferForm.message} onChange={e => setTransferForm({ ...transferForm, message: e.target.value })} rows="3" />
                             </div>
                         </div>
                         <div className="form-actions">
@@ -160,6 +190,10 @@ function MesEntites() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {isModalOpen && modalDocument && (
+                <DocumentModal document={modalDocument} onClose={closeModal} />
             )}
         </div>
     );
