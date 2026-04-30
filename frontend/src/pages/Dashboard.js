@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import DocumentModal from '../components/DocumentModal';
+import './Dashboard.css';
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -99,13 +100,21 @@ function Dashboard() {
     if (error) return <div className="error-message">{error}</div>;
 
     return (
-        <div className="dashboard-container">
+        <div className="dashboard-page dashboard-container" dir={locale === 'ar-MA' ? 'rtl' : 'ltr'}>
             <div className="dashboard-header">
                 <h1>{t('dashboard')}</h1>
                 <p>{t('dashboard_subtitle')}</p>
             </div>
 
-            <div className="quick-link-card" onClick={() => navigate('/mes-entites')}>
+            <div
+                className="quick-link-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate('/mes-entites')}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') navigate('/mes-entites');
+                }}
+            >
                 <div className="quick-link-icon">D</div>
                 <div className="quick-link-info">
                     <div className="quick-link-label">{t('mes_entites')}</div>
@@ -132,74 +141,76 @@ function Dashboard() {
                 </div>
             </div>
 
-            <Section title={t('demandes_attente')}>
-                {pending.length === 0 ? (
-                    <p className="text-muted">{t('aucune_demande')}</p>
-                ) : (
-                    <div className="transaction-list">
-                        {pending.map(tx => (
-                            <TransactionItem
-                                key={tx.id}
-                                tx={tx}
-                                badge={t('en_attente')}
-                                locale={locale}
-                                t={t}
-                                actions={[
-                                    <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
-                                    <button className="action-link cancel" onClick={() => handleCancel(tx.id)}>{t('annuler')}</button>
-                                ]}
-                            />
-                        ))}
-                    </div>
-                )}
-            </Section>
+            <div className="dashboard-sections">
+                <Section title={t('demandes_attente')}>
+                    {pending.length === 0 ? (
+                        <p className="text-muted">{t('aucune_demande')}</p>
+                    ) : (
+                        <div className="transaction-list">
+                            {pending.map(tx => (
+                                <TransactionItem
+                                    key={tx.id}
+                                    tx={tx}
+                                    badge={t('en_attente')}
+                                    locale={locale}
+                                    t={t}
+                                    actions={[
+                                        <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
+                                        <button className="action-link cancel" onClick={() => handleCancel(tx.id)}>{t('annuler')}</button>
+                                    ]}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </Section>
 
-            <Section title={t('transactions_traitees')}>
-                {completed.length === 0 ? (
-                    <p className="text-muted">{t('aucune_transaction')}</p>
-                ) : (
-                    <div className="transaction-list">
-                        {completed.map(tx => (
-                            <TransactionItem
-                                key={tx.id}
-                                tx={tx}
-                                badge={translateStatus(tx.statut, t)}
-                                locale={locale}
-                                t={t}
-                                note={tx.messageReponse || t('non_renseigne')}
-                                date={tx.dateReponse}
-                                dateLabel={t('traite_le')}
-                                actions={[
-                                    <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
-                                    <button className="action-link hide" onClick={() => handleHide(tx.id)}>{t('masquer')}</button>
-                                ]}
-                            />
-                        ))}
-                    </div>
-                )}
-            </Section>
+                <Section title={t('transactions_traitees')}>
+                    {completed.length === 0 ? (
+                        <p className="text-muted">{t('aucune_transaction')}</p>
+                    ) : (
+                        <div className="transaction-list">
+                            {completed.map(tx => (
+                                <TransactionItem
+                                    key={tx.id}
+                                    tx={tx}
+                                    badge={translateStatus(tx.statut, t)}
+                                    locale={locale}
+                                    t={t}
+                                    note={tx.messageReponse || t('non_renseigne')}
+                                    date={tx.dateReponse}
+                                    dateLabel={t('traite_le')}
+                                    actions={[
+                                        <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
+                                        <button className="action-link hide" onClick={() => handleHide(tx.id)}>{t('masquer')}</button>
+                                    ]}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </Section>
 
-            <Section title={t('documents_retourner')}>
-                {pendingReturns.length === 0 ? (
-                    <p className="text-muted">{t('aucun_document_retour')}</p>
-                ) : (
-                    <div className="transaction-list">
-                        {pendingReturns.map(tx => (
-                            <TransactionItem
-                                key={tx.id}
-                                tx={tx}
-                                badge={t('en_attente_retour')}
-                                locale={locale}
-                                t={t}
-                                actions={[
-                                    <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
-                                    <button className="action-link accept" onClick={() => handleMarkReturned(tx.id)}>{t('marquer_retourne')}</button>
-                                ]}
-                            />
-                        ))}
-                    </div>
-                )}
-            </Section>
+                <Section title={t('documents_retourner')}>
+                    {pendingReturns.length === 0 ? (
+                        <p className="text-muted">{t('aucun_document_retour')}</p>
+                    ) : (
+                        <div className="transaction-list">
+                            {pendingReturns.map(tx => (
+                                <TransactionItem
+                                    key={tx.id}
+                                    tx={tx}
+                                    badge={t('en_attente_retour')}
+                                    locale={locale}
+                                    t={t}
+                                    actions={[
+                                        <button className="action-link view" onClick={() => handleConsult(tx)}>{t('consulter')}</button>,
+                                        <button className="action-link accept" onClick={() => handleMarkReturned(tx.id)}>{t('marquer_retourne')}</button>
+                                    ]}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </Section>
+            </div>
 
             {showDocModal && (
                 <DocumentModal document={currentDocument} onClose={() => setShowDocModal(false)} />
@@ -210,12 +221,12 @@ function Dashboard() {
 
 function Section({ title, children }) {
     return (
-        <>
-            <div className="section-title" style={{ marginTop: '2rem' }}>
+        <section className="dashboard-section">
+            <div className="section-title">
                 <span>{title}</span>
             </div>
             {children}
-        </>
+        </section>
     );
 }
 

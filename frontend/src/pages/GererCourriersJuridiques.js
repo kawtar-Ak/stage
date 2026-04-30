@@ -105,7 +105,6 @@ function GererCourriersJuridiques({ embedded = false }) {
       date: new Date(form.date).toISOString(),
       tribunalSource: form.tribunalSource.trim(),
       sujet: form.sujet.trim(),
-      direction: form.direction,
       destinataire: form.destinataire.trim(),
       description: form.description.trim(),
       etatArchive: form.etatArchive,
@@ -140,7 +139,6 @@ function GererCourriersJuridiques({ embedded = false }) {
       tribunalSource: courrier.tribunalSource || "",
       numeroDossier: courrier.numeroDossier || "",
       sujet: courrier.sujet || "",
-      direction: courrier.direction || "Entrant",
       destinataire: courrier.destinataire || "",
       description: courrier.description || "",
       etatArchive: courrier.etatArchive || "Nouveau",
@@ -317,15 +315,6 @@ function GererCourriersJuridiques({ embedded = false }) {
             <div className="form-field">
               <label>الموضوع *</label>
               <input name="sujet" value={form.sujet} onChange={handleChange} required />
-            </div>
-
-            <div className="form-field">
-              <label>نوع المراسلة</label>
-              <select name="direction" value={form.direction} onChange={handleChange}>
-                <option value="Entrant">واردة</option>
-                <option value="Sortant">صادرة</option>
-                <option value="Interne">داخلية</option>
-              </select>
             </div>
 
             <div className="form-field">
@@ -540,7 +529,6 @@ function GererCourriersJuridiques({ embedded = false }) {
                 <th>المحكمة / المصدر</th>
                 <th>الرقم الاستئنافي للملف</th>
                 <th>الموضوع</th>
-                <th>نوع المراسلة</th>
                 <th>المرسل إليه</th>
                 <th>المصلحة</th>
                 <th>الحالة</th>
@@ -552,7 +540,7 @@ function GererCourriersJuridiques({ embedded = false }) {
             </thead>
             <tbody>
               {courriers.length === 0 ? (
-                <tr><td colSpan="12" style={{ textAlign: "center" }}>لا توجد مراسلات قضائية.</td></tr>
+                <tr><td colSpan="11" style={{ textAlign: "center" }}>لا توجد مراسلات قضائية.</td></tr>
               ) : (
                 courriers.map((courrier) => (
                   <tr key={courrier.id}>
@@ -560,7 +548,6 @@ function GererCourriersJuridiques({ embedded = false }) {
                     <td>{courrier.tribunalSource || "-"}</td>
                     <td>{courrier.numeroDossier || "-"}</td>
                     <td>{courrier.sujet || "-"}</td>
-                    <td>{formatDirection(courrier.direction)}</td>
                     <td>{courrier.destinataire || "-"}</td>
                     <td>{courrier.serviceNom || courrier.idService || "-"}</td>
                     <td>{formatEtat(courrier.etatArchive)}</td>
@@ -591,7 +578,6 @@ function getInitialForm(services = []) {
     tribunalSource: "",
     numeroDossier: "",
     sujet: "",
-    direction: "Entrant",
     destinataire: "",
     description: "",
     etatArchive: "Nouveau",
@@ -646,12 +632,6 @@ function getDocumentName(value) {
   if (!value) return "";
   const cleanValue = String(value).split("?")[0].split("#")[0];
   return decodeURIComponent(cleanValue.split("/").filter(Boolean).pop() || cleanValue);
-}
-
-function formatDirection(value) {
-  if (value === "Sortant") return "صادرة";
-  if (value === "Interne") return "داخلية";
-  return "واردة";
 }
 
 function formatEtat(value) {
